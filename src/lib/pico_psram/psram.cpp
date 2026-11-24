@@ -378,7 +378,7 @@ void __no_inline_not_in_flash_func(setup_psram)(bool useheap,uint32_t heapstart)
 
     ps_size = psram_size;
 #if PSRAM_HEAP
-    if (useheap)        // if useheap is false, heap is not initializes as ps_heap_size=0
+    if (useheap && heapstart < ps_size)  // Leave no heap if the fixed regions fill the chip.
     {
      __psram_heap_start__=__psram_start__+heapstart;    
      uint32_t used_psram_size = __psram_heap_start__ - __psram_start__;

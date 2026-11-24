@@ -88,6 +88,11 @@ add_subdirectory(lib/FatFs_SPI)
 # every board variant. The wmbios.bin (+ pmbios_image.h regeneration)
 # build lives in the WonderMCA submodule and is loaded only for the
 # WONDERMCA_10 board (see the conditional add_subdirectory below).
+set(PM2_PMR1 OFF)
+if (PICOMEM_BOARD STREQUAL "PICOMEM_20" AND DO_USBHOST)
+    set(PM2_PMR1 ON)
+    add_compile_definitions(PM2_PMR1=1)
+endif()
 add_subdirectory(rom)
 add_subdirectory(isa_devices)               # all ISA devices IO and MEM code
 add_subdirectory(audio_devices)

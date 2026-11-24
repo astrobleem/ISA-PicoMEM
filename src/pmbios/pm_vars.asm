@@ -399,6 +399,14 @@ PM_K         	DW 0x00   ; Generic var
 PM_L         	DW 0x00   ; Generic Var
 
 PMB_Stack:    ; ! Used to display the Memory table (DISPLAY_MEM_Bytes)
+%if ADD_Debug
+    DB 17 DUP (0) ; 16 printable characters plus terminator
+%endif
+
+; Guard the ABI region used by the firmware's opt-in PMR1 ring on PicoMEM2.
+TIMES (VARS_OFFS+0xE20)-($-$$) DB 0x55
+    DB 64 DUP (0x55) ; before later 0xF00 keyboard ring
+
 
 ; USB keyboard scancode RING (2026-07-14). Pico pushes PS/2 set-1 scans at
 ; Head; PMBIOS_Int1C drains the whole ring each tick. Sits in the free 0x55

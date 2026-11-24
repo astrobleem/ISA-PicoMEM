@@ -125,6 +125,10 @@ If not, see <https://www.gnu.org/licenses/>.
 
 
 
+#if PM2_PMR1
+#include "inputs/pmr_mouse.h"
+#endif
+
 #if USE_USBHOST
 #include "dev_joystick.h"
 #include "usbh.h"
@@ -812,11 +816,18 @@ void PM_ExecCMD()
     uint8_t PC_RamSize_Bloc;
     PC_RamSize_Bloc=(PC_MEM+256*PC_MEM_H)/16;  //Compute the Number of 16 Kb Bloc RAM on the PC
     
-    if ((PC_RamSize_Bloc+BV_TdyRAM)>40)
+    if (PC_RamSize_Bloc>=40)
+        BV_TdyRAM=0;
+    else if ((PC_RamSize_Bloc+BV_TdyRAM)>40)
        {
         PM_INFO("Err, Too many RAM, Adjust size %d\n",PC_RamSize_Bloc+BV_TdyRAM);
         BV_TdyRAM=40-PC_RamSize_Bloc;        
        }
+
+#if BOARD_PM20 && USE_RP2350_PSRAM
+    if (BV_TdyRAM>MAX_PMRAM && ps_size<PSRAM_GUS_OFFSET)
+        BV_TdyRAM=MAX_PMRAM;  // The 1 MiB ISA window is not available.
+#endif
 
      if (BV_TdyRAM!=0)
       {
@@ -830,24 +841,28 @@ void PM_ExecCMD()
           RAM_Offset_Table[MEM_RAM]=&PM_Memory[0];        // Place the RAM at the begining
           SetMEMType(0,MEM_RAM,MEM_S_16k*AddBlock_NB);    // MEMType is "for info"
           SetMEMIndex(0,MEM_RAM,MEM_S_16k*AddBlock_NB);   // MEMIndex is used for decoding
-          for (int i=0;i<MAX_PMRAM;i++)
+          for (int i=0;i<AddBlock_NB;i++)
            {PM_Config->MEM_Map[i]=MEM_RAM;}               // Update the Memory MAP
          }
 
-#if USE_SPI_PSRAM
+#if USE_SPI_PSRAM || (BOARD_PM20 && USE_RP2350_PSRAM)
      if (BV_TdyRAM>MAX_PMRAM) // Then PSRAM
         {  // Add Tandy RAM as PSRAM From the Address MAX_PMRAM*+16KB, size (BV_TdyRAM-MAX_PMRAM)*16KB  
           PM_INFO("Add %dx16K PSRAM, Addr %x \n",BV_TdyRAM-MAX_PMRAM,MAX_PMRAM<<14);     
           uint32_t MEM_Addr=MAX_PMRAM<<14;  // Shift 14 for 16Kb Block
+#if BOARD_PM20 && USE_RP2350_PSRAM
+          // Tandy POST uses this mapping before CMD_MEM_Init.
+          RAM_Offset_Table[MEM_PSRAM]=(uint8_t *)PSRAM_RAM_START;
+#endif
           SetMEMType(MEM_Addr,MEM_PSRAM,MEM_S_16k*(BV_TdyRAM-MAX_PMRAM));
           SetMEMIndex(MEM_Addr,MEM_PSRAM,MEM_S_16k*(BV_TdyRAM-MAX_PMRAM));
+#if USE_SPI_PSRAM
           BV_SPIPSRAM=1;                    // Tell that SPI PSRAM is used
           BV_Int13hCLI=1;                   // Block interrupt during Int13h
+#endif
           for (int i=MAX_PMRAM;i<BV_TdyRAM;i++)
            {PM_Config->MEM_Map[i]=MEM_PSRAM;}           // Update the Memory MAP
         }
-#else
-
 #endif
 // Move the Sysem RAM to its new location (Just after the added RAM)
      for (int i=BV_TdyRAM;i<(BV_TdyRAM+PC_RamSize_Bloc);i++)
@@ -3148,8 +3163,13 @@ PM_Config->PSRAM_Ext=0;            // Force PSRAM emulated RAM Off
 // ************  Init the Pimoroni / PM1.5 PSRAM  ******************
 #ifdef PIMORONI_PICO_PLUS2_RP2350
 #if PSRAM_HEAP
+#if BOARD_PM20
+// Keep EMS, the ISA RAM window and GUS wave RAM outside the allocator.
+setup_psram(true,PSRAM_FIXED_END);
+#else
 PM_INFO(">Init RP2350 PSRAM with Heap at 1MB\n");
-setup_psram(true,1024*1024);    // Without heap, Start at 1MB
+setup_psram(true,1024*1024);
+#endif
 PM_INFO("PSRAM Heap total space: %d bytes\n",ps_total_space());
 #else
 PM_INFO(">Init RP2350 PSRAM:");
@@ -3416,6 +3436,9 @@ if (USB_Host_Enabled)
   // synthesize the held-key auto-repeat here. Cheap no-op when idle.
   pm_keyboard_tick();
 
+#if PM2_PMR1
+  if (!pmr_mouse::tick(PM_DP_RAM + PMR_MOUSE_OFFSET, BV_BootCount, pm_mouse))
+#endif
   if (pm_mouse.event&&MOUSE_Enabled)
    {
     pm_mouse.event=false;

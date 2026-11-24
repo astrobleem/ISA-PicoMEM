@@ -6,8 +6,11 @@
 #include "pico_psram.h"
 
 #define PSRAM_EMS_START __psram_start__              // First 4Mb
-#define PSRAM_RAM_START __psram_start__+4*1024*1024  // PSRAM extention in the first 1Mb 
-#define PSRAM_GUS_START __psram_start__+5*1024*1024  // 1MB GUS Memory Start
+#define PSRAM_RAM_OFFSET  (4u*1024*1024)
+#define PSRAM_GUS_OFFSET  (5u*1024*1024)
+#define PSRAM_FIXED_END   (PSRAM_GUS_OFFSET + 1024u*1024)
+#define PSRAM_RAM_START   (__psram_start__ + PSRAM_RAM_OFFSET)  // 1 MiB ISA memory window
+#define PSRAM_GUS_START   (__psram_start__ + PSRAM_GUS_OFFSET)  // 1 MiB GUS wave RAM
 #endif
 
 #define MAX_ROM 7  // Max number of ROM loaded
